@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Password Room Live Sync | @webdev.fabio</title>
+
+    <meta name="theme-color" content="#030712" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23030712' stroke='%2338bdf8' stroke-width='2.5'/%3E%3Crect x='18' y='26' width='28' height='26' rx='6' fill='%230284c7' stroke='%2338bdf8' stroke-width='2'/%3E%3Cpath d='M24 26 V18 C24 13 40 13 40 18 V26' fill='none' stroke='%23f59e0b' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='32' cy='37' r='3.5' fill='%23fff'/%3E%3C/svg%3E"
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+
+    <style>
+      :root {
+        --bg: #030712;
+        --card-bg: rgba(11, 20, 38, 0.94);
+        --team-a: #06b6d4;
+        --team-a-dark: #0891b2;
+        --team-b: #f59e0b;
+        --team-b-dark: #d97706;
+        --gold: #ffd000;
+        --danger: #ef4444;
+        --success: #10b981;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --border: rgba(255, 255, 255, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "Montserrat", sans-serif;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      body {
+        background-color: var(--bg);
+        background-image: radial-gradient(
+          circle at 50% 15%,
+          #083344,
+          var(--bg)
+        );
+        color: var(--text);
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: clamp(10px, 2vh, 18px);
+        text-align: center;
+      }
+
+      .creator-tag {
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: #e2e8f0;
+        background: rgba(11, 20, 38, 0.85);
+        padding: 5px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        margin-bottom: 8px;
+      }
+      .creator-tag a {
+        color: var(--gold);
+        text-decoration: underline;
+        font-weight: 900;
+      }
+
+      .main-card {
+        width: 100%;
+        max-width: 540px;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        backdrop-filter: blur(16px);
+        border-radius: 26px;
+        padding: clamp(16px, 2.5vh, 24px) clamp(14px, 3vw, 20px);
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .scoreboard-hud {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 8px;
+        background: #020617;
+        border: 2px solid var(--border);
+        border-radius: 18px;
+        padding: 10px 14px;
+        align-items: center;
+      }
+      .team-badge {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 6px;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+      }
+      .team-badge.active-a {
+        background: rgba(6, 182, 212, 0.2);
+        border: 1.5px solid var(--team-a);
+      }
+      .team-badge.active-b {
+        background: rgba(245, 158, 11, 0.2);
+        border: 1.5px solid var(--team-b);
+      }
+      .team-name-lbl {
+        font-size: 0.72rem;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+      .team-pts-lbl {
+        font-size: 1.7rem;
+        font-weight: 900;
+      }
+
+      .jackpot-pill {
+        background: rgba(255, 208, 0, 0.15);
+        border: 1.5px solid var(--gold);
+        color: var(--gold);
+        border-radius: 999px;
+        padding: 5px 14px;
+        font-size: 0.82rem;
+        font-weight: 900;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0 auto;
+      }
+
+      .captain-card {
+        background: linear-gradient(145deg, #091326, #020617);
+        border: 2px dashed var(--gold);
+        border-radius: 20px;
+        padding: 16px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .secret-word-display {
+        font-size: clamp(2rem, 6vw, 2.6rem);
+        font-weight: 900;
+        letter-spacing: 2px;
+        color: #fff;
+        text-shadow: 0 0 16px rgba(6, 182, 212, 0.8);
+        text-transform: uppercase;
+      }
+      .forbidden-wrap {
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .forbidden-tag {
+        background: rgba(239, 68, 68, 0.2);
+        border: 1px solid var(--danger);
+        color: #fca5a5;
+        font-size: 0.75rem;
+        font-weight: 900;
+        padding: 3px 8px;
+        border-radius: 999px;
+      }
+
+      .clues-stream {
+        background: #020617;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 10px;
+        min-height: 80px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        text-align: left;
+      }
+      .clue-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        font-weight: 800;
+      }
+      .clue-row.team-a {
+        background: rgba(6, 182, 212, 0.15);
+        border-left: 3px solid var(--team-a);
+        color: #e0f2fe;
+      }
+      .clue-row.team-b {
+        background: rgba(245, 158, 11, 0.15);
+        border-left: 3px solid var(--team-b);
+        color: #fef3c7;
+      }
+
+      .custom-input {
+        width: 100%;
+        background: #020617;
+        border: 1.5px solid var(--border);
+        border-radius: 14px;
+        padding: 12px 14px;
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 800;
+        text-align: center;
+        text-transform: uppercase;
+        outline: none;
+      }
+      .custom-input:focus {
+        border-color: var(--gold);
+      }
+
+      .btn {
+        width: 100%;
+        padding: 14px;
+        border: none;
+        border-radius: 14px;
+        color: white;
+        font-size: 0.92rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+      }
+      .btn:active {
+        transform: scale(0.97);
+      }
+      .btn-gold {
+        background: linear-gradient(135deg, var(--gold), #d97706);
+        color: #030712;
+      }
+      .btn-cyan {
+        background: linear-gradient(135deg, var(--team-a), var(--team-a-dark));
+        color: #030712;
+      }
+      .btn-amber {
+        background: linear-gradient(135deg, var(--team-b), var(--team-b-dark));
+        color: #030712;
+      }
+      .btn-dark {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--border);
+        color: #fff;
+      }
+
+      canvas#confettiCanvas {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="confettiCanvas"></canvas>
+
+    <div class="creator-tag">
+      💻 Realizzato da
+      <a
+        href="https://www.instagram.com/webdev.fabio/"
+        target="_blank"
+        rel="noopener noreferrer"
+        >@webdev.fabio</a
+      >
+    </div>
+
+    <div class="main-card">
+      <h1
+        style="
+          font-size: 1.35rem;
+          font-weight: 900;
+          color: var(--gold);
+          letter-spacing: 1px;
+        "
+      >
+        PASSWORD ROOM LIVE 🔐
+      </h1>
+
+      <!-- 1. SCHERMATA ACCESSO / RUOLO DAL PROPRIO TELEFONO -->
+      <div
+        id="join-screen"
+        style="display: flex; flex-direction: column; gap: 10px"
+      >
+        <p style="font-size: 0.85rem; color: var(--muted)">
+          Connettiti con il tuo telefono per giocare insieme alla tua squadra:
+        </p>
+
+        <input
+          type="text"
+          id="playerNameInput"
+          class="custom-input"
+          placeholder="IL TUO NOME..."
+          maxlength="15"
+        />
+
+        <div
+          style="
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: #fff;
+            text-align: left;
+            margin-top: 4px;
+          "
+        >
+          SCEGLI LA TUA SQUADRA:
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+          <button class="btn btn-cyan" onclick="joinLobby('A')">
+            SQUADRA CYAN
+          </button>
+          <button class="btn btn-amber" onclick="joinLobby('B')">
+            SQUADRA AMBER
+          </button>
+        </div>
+
+        <button
+          class="btn btn-dark"
+          style="margin-top: 6px; font-size: 0.8rem"
+          onclick="joinLobby('REGIA')"
+        >
+          🖥️ MODALITÀ SCHERMO TV / PROIETTORE
+        </button>
+      </div>
+
+      <!-- 2. GIOCO SINCRONIZZATO LIVE -->
+      <div
+        id="gameplay-screen"
+        style="display: none; flex-direction: column; gap: 10px"
+      >
+        <div class="scoreboard-hud">
+          <div class="team-badge" id="hudBadgeA">
+            <div
+              class="team-name-lbl"
+              style="color: var(--team-a)"
+              id="nameTeamA"
+            >
+              Squadra Cyan
+            </div>
+            <div
+              class="team-pts-lbl"
+              style="color: var(--team-a)"
+              id="scoreTeamA"
+            >
+              0
+            </div>
+          </div>
+          <div
+            style="font-size: 0.75rem; font-weight: 900; color: var(--muted)"
+          >
+            VS
+          </div>
+          <div class="team-badge" id="hudBadgeB">
+            <div
+              class="team-name-lbl"
+              style="color: var(--team-b)"
+              id="nameTeamB"
+            >
+              Squadra Amber
+            </div>
+            <div
+              class="team-pts-lbl"
+              style="color: var(--team-b)"
+              id="scoreTeamB"
+            >
+              0
+            </div>
+          </div>
+        </div>
+
+        <div class="jackpot-pill">
+          <i class="fa-solid fa-bolt"></i> VALORE MANCHE:
+          <span id="jackpotVal">10</span> PUNTI
+        </div>
+
+        <!-- STATUS TURNO -->
+        <div
+          style="
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 8px;
+            font-size: 0.85rem;
+            font-weight: 800;
+          "
+          id="statusBanner"
+        >
+          In attesa di iniziare...
+        </div>
+
+        <!-- SELETTORE CAPITANO (DISPONIBILE SUL PROPRIO SMARTPHONE) -->
+        <div
+          id="captainToggleWrap"
+          style="
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+          "
+        >
+          <span style="font-size: 0.8rem; font-weight: 800"
+            >Sei il Capitano per questo round?</span
+          >
+          <button
+            class="btn btn-gold"
+            style="width: auto; padding: 6px 12px; font-size: 0.75rem"
+            id="captainToggleBtn"
+            onclick="toggleCaptainRole()"
+          >
+            SONO IO 👑
+          </button>
+        </div>
+
+        <!-- SEZIONE PRIVATA CAPITANO (VISIBILE SOLO SE SEI CAPITANO DELLA SQUADRA DI TURNO) -->
+        <div id="captainPrivateArea" class="captain-card" style="display: none">
+          <div style="font-size: 0.7rem; font-weight: 800; color: var(--gold)">
+            👁️ SCHEDA SEGRETA CAPITANO (NON MOSTRARE!):
+          </div>
+          <div class="secret-word-display" id="captainWordDisplay">
+            PASSWORD
+          </div>
+          <div class="forbidden-wrap" id="captainForbiddenTags"></div>
+
+          <div style="display: flex; gap: 6px; margin-top: 6px">
+            <input
+              type="text"
+              id="clueSendInput"
+              class="custom-input"
+              placeholder="DIGITA 1 PAROLA INDIZIO..."
+              maxlength="18"
+            />
+            <button
+              class="btn btn-gold"
+              style="width: auto; padding: 0 16px"
+              onclick="sendClue()"
+            >
+              INVIA
+            </button>
+          </div>
+        </div>
+
+        <!-- SEZIONE GUESS COMPAGNI (VISIBILE A CHI DEVE INDOVINARE) -->
+        <div
+          id="guessArea"
+          style="display: none; flex-direction: column; gap: 8px"
+        >
+          <div
+            style="
+              font-size: 0.78rem;
+              font-weight: 800;
+              color: var(--muted);
+              text-align: left;
+            "
+          >
+            INDIZI RICEVUTI:
+          </div>
+          <div class="clues-stream" id="cluesHistoryStream"></div>
+
+          <div id="guessInputRow" style="display: flex; gap: 6px">
+            <input
+              type="text"
+              id="guessSendInput"
+              class="custom-input"
+              placeholder="QUAL È LA PASSWORD?"
+              maxlength="20"
+            />
+            <button
+              class="btn btn-gold"
+              style="width: auto; padding: 0 16px"
+              onclick="sendGuess()"
+            >
+              INVIA
+            </button>
+          </div>
+        </div>
+
+        <!-- TASTO AVVIO PROSSIMO ROUND (VISIBILE A TUTTI O ALLA REGIA) -->
+        <button
+          class="btn btn-gold"
+          id="startRoundBtn"
+          style="display: block"
+          onclick="startNextRound()"
+        >
+          <i class="fa-solid fa-play"></i> INIZIA PROSSIMO ROUND
+        </button>
+
+        <div
+          id="liveAlertBox"
+          style="font-size: 0.88rem; font-weight: 900; min-height: 22px"
+        ></div>
+      </div>
+    </div>
+
+    <script>
+      let ws = null;
+      let myPlayer = { name: "Ospite", team: "A", is_captain: false };
+      let gameState = null;
+      let secretCard = null;
+
+      // Connessione WebSocket automatica al server FastAPI
+      function initWebSocket() {
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          handleServerMessage(data);
+        };
+
+        ws.onclose = () => {
+          setTimeout(initWebSocket, 2000);
+        };
+      }
+
+      function joinLobby(teamChoice) {
+        const name =
+          document.getElementById("playerNameInput").value.trim() || "Ospite";
+        myPlayer.name = name;
+        myPlayer.team = teamChoice;
+
+        document.getElementById("join-screen").style.display = "none";
+        document.getElementById("gameplay-screen").style.display = "flex";
+
+        if (teamChoice === "REGIA") {
+          document.getElementById("captainToggleWrap").style.display = "none";
+        }
+
+        ws.send(
+          JSON.stringify({
+            action: "JOIN_GAME",
+            name: myPlayer.name,
+            team: myPlayer.team,
+          }),
+        );
+      }
+
+      function handleServerMessage(data) {
+        if (data.type === "STATE_UPDATE") {
+          gameState = data;
+          updateUI();
+        } else if (data.type === "SECRET_CARD_SYNC") {
+          secretCard = data;
+          updateUI();
+        } else if (data.type === "TABOO_ALERT") {
+          document.getElementById("liveAlertBox").innerHTML =
+            `<span style="color: var(--danger);">${data.message}</span>`;
+          gameState = data.state;
+          updateUI();
+        } else if (data.type === "CORRECT_GUESS") {
+          document.getElementById("liveAlertBox").innerHTML =
+            `<span style="color: var(--success);">🏆 ${data.winner_team} ha indovinato (${data.password})! +${data.points} PUNTI</span>`;
+          gameState = data.state;
+          updateUI();
+        } else if (data.type === "WRONG_GUESS") {
+          document.getElementById("liveAlertBox").innerHTML =
+            `<span style="color: var(--danger);">${data.message}</span>`;
+          gameState = data.state;
+          updateUI();
+        } else if (data.type === "EXHAUSTED") {
+          document.getElementById("liveAlertBox").innerHTML =
+            `<span style="color: var(--danger);">${data.message}</span>`;
+          gameState = data.state;
+          updateUI();
+        } else if (data.type === "ERROR") {
+          alert(data.message);
+        }
+      }
+
+      function toggleCaptainRole() {
+        myPlayer.is_captain = !myPlayer.is_captain;
+        const btn = document.getElementById("captainToggleBtn");
+        if (myPlayer.is_captain) {
+          btn.innerText = "CAPITANO ATTIVO ✓";
+          btn.style.background = "var(--success)";
+        } else {
+          btn.innerText = "SONO IO 👑";
+          btn.style.background =
+            "linear-gradient(135deg, var(--gold), #d97706)";
+        }
+        updateUI();
+      }
+
+      function updateUI() {
+        if (!gameState) return;
+
+        document.getElementById("nameTeamA").innerText = gameState.team_a_name;
+        document.getElementById("scoreTeamA").innerText = gameState.score_a;
+        document.getElementById("nameTeamB").innerText = gameState.team_b_name;
+        document.getElementById("scoreTeamB").innerText = gameState.score_b;
+        document.getElementById("jackpotVal").innerText =
+          gameState.current_points;
+
+        const badgeA = document.getElementById("hudBadgeA");
+        const badgeB = document.getElementById("hudBadgeB");
+        if (gameState.active_team === "A") {
+          badgeA.className = "team-badge active-a";
+          badgeB.className = "team-badge";
+        } else {
+          badgeA.className = "team-badge";
+          badgeB.className = "team-badge active-b";
+        }
+
+        // Gestione fasi
+        const banner = document.getElementById("statusBanner");
+        const captainArea = document.getElementById("captainPrivateArea");
+        const guessArea = document.getElementById("guessArea");
+        const startBtn = document.getElementById("startRoundBtn");
+
+        if (gameState.phase === "LOBBY" || gameState.phase === "ROUND_END") {
+          startBtn.style.display = "block";
+          captainArea.style.display = "none";
+          guessArea.style.display = "none";
+          banner.innerText =
+            gameState.phase === "LOBBY"
+              ? "Lobby aperta. Clicca per iniziare il Round 1!"
+              : "Round Concluso. Pronti per la prossima password!";
+        } else if (gameState.phase === "CAPTAIN_CLUE") {
+          startBtn.style.display = "none";
+          banner.innerHTML = `Turno del Capitano: <strong style="color: var(--gold);">${gameState.active_team_name}</strong>`;
+
+          // Mostra la scheda solo se questo telefono è il Capitano della squadra attiva
+          if (
+            myPlayer.is_captain &&
+            myPlayer.team === gameState.active_team &&
+            secretCard
+          ) {
+            captainArea.style.display = "flex";
+            document.getElementById("captainWordDisplay").innerText =
+              secretCard.password;
+            const tags = document.getElementById("captainForbiddenTags");
+            tags.innerHTML = secretCard.forbidden
+              .map((f) => `<span class="forbidden-tag">${f}</span>`)
+              .join("");
+          } else {
+            captainArea.style.display = "none";
+          }
+
+          guessArea.style.display = "none";
+        } else if (gameState.phase === "TEAM_GUESS") {
+          startBtn.style.display = "none";
+          captainArea.style.display = "none";
+          guessArea.style.display = "flex";
+
+          banner.innerHTML = `Tocca alla squadra: <strong style="color: var(--gold);">${gameState.active_team_name}</strong>`;
+
+          // Render indizi
+          const stream = document.getElementById("cluesHistoryStream");
+          stream.innerHTML = gameState.clues_history
+            .map(
+              (item) => `
+          <div class="clue-row ${item.team === "A" ? "team-a" : "team-b"}">
+            <span>#${item.attempt} - ${item.clue}</span>
+            <span style="font-size: 0.72rem; opacity: 0.85;">${item.team_name}</span>
+          </div>
+        `,
+            )
+            .join("");
+
+          // Solo i compagni della squadra attiva possono digitare (non il capitano e non gli avversari)
+          const canGuess =
+            myPlayer.team === gameState.active_team && !myPlayer.is_captain;
+          document.getElementById("guessInputRow").style.display = canGuess
+            ? "flex"
+            : "none";
+        }
+      }
+
+      function startNextRound() {
+        ws.send(JSON.stringify({ action: "START_ROUND" }));
+      }
+
+      function sendClue() {
+        const clue = document
+          .getElementById("clueSendInput")
+          .value.trim()
+          .toUpperCase();
+        if (!clue) return;
+        ws.send(JSON.stringify({ action: "SUBMIT_CLUE", clue: clue }));
+        document.getElementById("clueSendInput").value = "";
+      }
+
+      function sendGuess() {
+        const guess = document
+          .getElementById("guessSendInput")
+          .value.trim()
+          .toUpperCase();
+        if (!guess) return;
+        ws.send(JSON.stringify({ action: "SUBMIT_GUESS", guess: guess }));
+        document.getElementById("guessSendInput").value = "";
+      }
+
+      window.onload = initWebSocket;
+    </script>
+  </body>
+</html>
