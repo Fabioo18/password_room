@@ -521,25 +521,51 @@
       let myPlayer = { name: "Ospite", team: "A", is_captain: false };
       let gameState = null;
       let secretCard = null;
+      let isConnecting = false;
 
-      // Connessione WebSocket automatica al server FastAPI
-      function initWebSocket() {
+      function initWebSocket(callback) {
+        if (
+          ws &&
+          (ws.readyState === WebSocket.OPEN ||
+            ws.readyState === WebSocket.CONNECTING)
+        ) {
+          if (callback && ws.readyState === WebSocket.OPEN) callback();
+          return;
+        }
+
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
+        ws.onopen = () => {
+          console.log("WebSocket collegato con successo.");
+          if (callback) callback();
+        };
+
         ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          handleServerMessage(data);
+          try {
+            const data = JSON.parse(event.data);
+            handleServerMessage(data);
+          } catch (e) {
+            console.error("Errore parsing frame WS:", e);
+          }
         };
 
         ws.onclose = () => {
-          setTimeout(initWebSocket, 2000);
+          setTimeout(() => initWebSocket(), 2000);
+        };
+
+        ws.onerror = (err) => {
+          console.error("Errore socket:", err);
         };
       }
 
       function joinLobby(teamChoice) {
+        const nameInput = document.getElementById("playerNameInput");
         const name =
-          document.getElementById("playerNameInput").value.trim() || "Ospite";
+          nameInput && nameInput.value.trim()
+            ? nameInput.value.trim()
+            : "Ospite";
+
         myPlayer.name = name;
         myPlayer.team = teamChoice;
 
@@ -550,13 +576,22 @@
           document.getElementById("captainToggleWrap").style.display = "none";
         }
 
-        ws.send(
-          JSON.stringify({
-            action: "JOIN_GAME",
-            name: myPlayer.name,
-            team: myPlayer.team,
-          }),
-        );
+        // Assicura che l'invio avvenga a connessione aperta
+        const sendJoin = () => {
+          ws.send(
+            JSON.stringify({
+              action: "JOIN_GAME",
+              name: myPlayer.name,
+              team: myPlayer.team,
+            }),
+          );
+        };
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          sendJoin();
+        } else {
+          initWebSocket(sendJoin);
+        }
       }
 
       function handleServerMessage(data) {
@@ -625,7 +660,6 @@
           badgeB.className = "team-badge active-b";
         }
 
-        // Gestione fasi
         const banner = document.getElementById("statusBanner");
         const captainArea = document.getElementById("captainPrivateArea");
         const guessArea = document.getElementById("guessArea");
@@ -637,13 +671,12 @@
           guessArea.style.display = "none";
           banner.innerText =
             gameState.phase === "LOBBY"
-              ? "Lobby aperta. Clicca per iniziare il Round 1!"
-              : "Round Concluso. Pronti per la prossima password!";
+              ? "Tutti pronti? Clicca sul tasto sotto per lanciare il Round!"
+              : "Manche conclusa. Clicca per la prossima password!";
         } else if (gameState.phase === "CAPTAIN_CLUE") {
           startBtn.style.display = "none";
           banner.innerHTML = `Turno del Capitano: <strong style="color: var(--gold);">${gameState.active_team_name}</strong>`;
 
-          // Mostra la scheda solo se questo telefono è il Capitano della squadra attiva
           if (
             myPlayer.is_captain &&
             myPlayer.team === gameState.active_team &&
@@ -668,20 +701,18 @@
 
           banner.innerHTML = `Tocca alla squadra: <strong style="color: var(--gold);">${gameState.active_team_name}</strong>`;
 
-          // Render indizi
           const stream = document.getElementById("cluesHistoryStream");
           stream.innerHTML = gameState.clues_history
             .map(
               (item) => `
-          <div class="clue-row ${item.team === "A" ? "team-a" : "team-b"}">
-            <span>#${item.attempt} - ${item.clue}</span>
-            <span style="font-size: 0.72rem; opacity: 0.85;">${item.team_name}</span>
-          </div>
-        `,
+        <div class="clue-row ${item.team === "A" ? "team-a" : "team-b"}">
+          <span>#${item.attempt} - ${item.clue}</span>
+          <span style="font-size: 0.72rem; opacity: 0.85;">${item.team_name}</span>
+        </div>
+      `,
             )
             .join("");
 
-          // Solo i compagni della squadra attiva possono digitare (non il capitano e non gli avversari)
           const canGuess =
             myPlayer.team === gameState.active_team && !myPlayer.is_captain;
           document.getElementById("guessInputRow").style.display = canGuess
@@ -691,30 +722,34 @@
       }
 
       function startNextRound() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          initWebSocket(() => {
+            ws.send(JSON.stringify({ action: "START_ROUND" }));
+          });
+          return;
+        }
         ws.send(JSON.stringify({ action: "START_ROUND" }));
       }
 
       function sendClue() {
-        const clue = document
-          .getElementById("clueSendInput")
-          .value.trim()
-          .toUpperCase();
+        const input = document.getElementById("clueSendInput");
+        const clue = input.value.trim().toUpperCase();
         if (!clue) return;
         ws.send(JSON.stringify({ action: "SUBMIT_CLUE", clue: clue }));
-        document.getElementById("clueSendInput").value = "";
+        input.value = "";
       }
 
       function sendGuess() {
-        const guess = document
-          .getElementById("guessSendInput")
-          .value.trim()
-          .toUpperCase();
+        const input = document.getElementById("guessSendInput");
+        const guess = input.value.trim().toUpperCase();
         if (!guess) return;
         ws.send(JSON.stringify({ action: "SUBMIT_GUESS", guess: guess }));
-        document.getElementById("guessSendInput").value = "";
+        input.value = "";
       }
 
-      window.onload = initWebSocket;
+      window.addEventListener("DOMContentLoaded", () => {
+        initWebSocket();
+      });
     </script>
   </body>
 </html>
