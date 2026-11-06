@@ -83,7 +83,7 @@
 
       .main-card {
         width: 100%;
-        max-width: 540px;
+        max-width: 560px;
         background: var(--card-bg);
         border: 1px solid var(--border);
         backdrop-filter: blur(16px);
@@ -129,6 +129,11 @@
       .team-pts-lbl {
         font-size: 1.8rem;
         font-weight: 900;
+      }
+      .captain-info-lbl {
+        font-size: 0.68rem;
+        font-weight: 800;
+        opacity: 0.9;
       }
 
       .jackpot-pill {
@@ -207,6 +212,21 @@
         background: rgba(245, 158, 11, 0.15);
         border-left: 3px solid var(--team-b);
         color: #fef3c7;
+      }
+
+      .guesses-ticker {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+      }
+      .guess-chip {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--border);
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 800;
       }
 
       .custom-input {
@@ -298,14 +318,14 @@
         style="display: flex; flex-direction: column; gap: 10px"
       >
         <p style="font-size: 0.85rem; color: var(--muted)">
-          Inserisci il tuo nome e unisciti alla tua squadra:
+          Inserisci il tuo nome e scegli la tua squadra:
         </p>
 
         <input
           type="text"
           id="playerNameInput"
           class="custom-input"
-          placeholder="IL TUO NOME..."
+          placeholder="IL TUO NOME O NICK..."
           maxlength="15"
         />
 
@@ -355,6 +375,13 @@
             >
               0
             </div>
+            <div
+              class="captain-info-lbl"
+              id="capInfoA"
+              style="color: var(--team-a)"
+            >
+              Capitano: --
+            </div>
           </div>
           <div
             style="font-size: 0.75rem; font-weight: 900; color: var(--muted)"
@@ -375,6 +402,13 @@
               id="scoreTeamB"
             >
               0
+            </div>
+            <div
+              class="captain-info-lbl"
+              id="capInfoB"
+              style="color: var(--team-b)"
+            >
+              Capitano: --
             </div>
           </div>
         </div>
@@ -398,7 +432,7 @@
           In attesa di iniziare...
         </div>
 
-        <!-- TASTO CAPITANO -->
+        <!-- BLOCCO CANDIDATURA CAPITANO UNICO -->
         <div
           id="captainToggleWrap"
           style="
@@ -410,8 +444,10 @@
             justify-content: space-between;
           "
         >
-          <span style="font-size: 0.82rem; font-weight: 800"
-            >Sei il Capitano di questo turno?</span
+          <span
+            style="font-size: 0.82rem; font-weight: 800"
+            id="captainStatusTxt"
+            >Diventa il Capitano della tua squadra:</span
           >
           <button
             class="btn btn-gold"
@@ -419,7 +455,7 @@
             id="captainToggleBtn"
             onclick="toggleCaptainRole()"
           >
-            SONO IO 👑
+            DIVENTA CAPITANO 👑
           </button>
         </div>
 
@@ -463,7 +499,7 @@
           </div>
         </div>
 
-        <!-- VISUALE SQUADRA CHE INDOVINA -->
+        <!-- VISUALE SQUADRA CHE INDOVINA (APERTO A TUTTI I GIOCATORI DEL TEAM) -->
         <div
           id="guessArea"
           style="display: none; flex-direction: column; gap: 8px"
@@ -480,25 +516,41 @@
           </div>
           <div class="clues-stream" id="cluesHistoryStream"></div>
 
-          <div id="guessInputRow" style="display: flex; gap: 6px">
+          <div
+            style="
+              font-size: 0.75rem;
+              font-weight: 800;
+              color: var(--muted);
+              text-align: left;
+            "
+          >
+            TENTATIVI INVIATI DALLA SQUADRA:
+          </div>
+          <div class="guesses-ticker" id="guessesTicker"></div>
+
+          <!-- Form di inserimento aperto a tutti i compagni di squadra contemporaneamente -->
+          <div
+            id="guessInputRow"
+            style="display: flex; gap: 6px; margin-top: 6px"
+          >
             <input
               type="text"
               id="guessSendInput"
               class="custom-input"
-              placeholder="QUAL È LA PASSWORD?"
-              maxlength="20"
+              placeholder="QUAL È LA PASSWORD? PROVA!"
+              maxlength="22"
             />
             <button
               class="btn btn-gold"
               style="width: auto; padding: 0 16px"
               onclick="sendGuess()"
             >
-              INVIA
+              TENTA
             </button>
           </div>
         </div>
 
-        <!-- TASTI DI CONTROLLO -->
+        <!-- CONTROLLI REGIA E RESET -->
         <div
           style="
             display: flex;
@@ -551,7 +603,6 @@
         ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
         ws.onopen = () => {
-          console.log("WebSocket collegato.");
           if (callback) callback();
         };
 
@@ -612,7 +663,7 @@
           updateUI();
         } else if (data.type === "CORRECT_GUESS") {
           document.getElementById("liveAlertBox").innerHTML =
-            `<span style="color: var(--success);">🏆 ${data.winner_team} ha indovinato (${data.password})! +${data.points} PUNTI</span>`;
+            `<span style="color: var(--success);">🏆 ${data.guesser} (${data.winner_team}) ha indovinato: "${data.password}"! +${data.points} PUNTI</span>`;
           gameState = data.state;
           updateUI();
         } else if (data.type === "WRONG_GUESS") {
@@ -631,17 +682,9 @@
       }
 
       function toggleCaptainRole() {
-        myPlayer.is_captain = !myPlayer.is_captain;
-        const btn = document.getElementById("captainToggleBtn");
-        if (myPlayer.is_captain) {
-          btn.innerText = "CAPITANO ATTIVO ✓";
-          btn.style.background = "var(--success)";
-        } else {
-          btn.innerText = "SONO IO 👑";
-          btn.style.background =
-            "linear-gradient(135deg, var(--gold), #d97706)";
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ action: "CLAIM_CAPTAIN" }));
         }
-        updateUI();
       }
 
       function updateUI() {
@@ -654,6 +697,39 @@
         document.getElementById("jackpotVal").innerText =
           gameState.current_points;
 
+        // Aggiorna indicatore capitani unici
+        document.getElementById("capInfoA").innerText = gameState.captain_a
+          ? `Capitano: ${gameState.captain_a}`
+          : "Capitano: --";
+        document.getElementById("capInfoB").innerText = gameState.captain_b
+          ? `Capitano: ${gameState.captain_b}`
+          : "Capitano: --";
+
+        // Verifica se questo client è il capitano registrato della sua squadra
+        const isCaptainA =
+          gameState.captain_a === myPlayer.name && myPlayer.team === "A";
+        const isCaptainB =
+          gameState.captain_b === myPlayer.name && myPlayer.team === "B";
+        myPlayer.is_captain = isCaptainA || isCaptainB;
+
+        // Aggiorna pulsante capitano
+        const capBtn = document.getElementById("captainToggleBtn");
+        const currentTeamCaptain =
+          myPlayer.team === "A" ? gameState.captain_a : gameState.captain_b;
+
+        if (myPlayer.is_captain) {
+          capBtn.innerText = "SEI IL CAPITANO ✓";
+          capBtn.style.background = "var(--success)";
+        } else if (currentTeamCaptain) {
+          capBtn.innerText = `CAPITANO: ${currentTeamCaptain.toUpperCase()}`;
+          capBtn.style.background = "rgba(255,255,255,0.1)";
+        } else {
+          capBtn.innerText = "DIVENTA CAPITANO 👑";
+          capBtn.style.background =
+            "linear-gradient(135deg, var(--gold), #d97706)";
+        }
+
+        // HUD attivo
         const badgeA = document.getElementById("hudBadgeA");
         const badgeB = document.getElementById("hudBadgeB");
         if (gameState.active_team === "A") {
@@ -676,11 +752,10 @@
           banner.innerText =
             gameState.phase === "LOBBY"
               ? "Lobby aperta. Premi 'INIZIA PROSSIMO ROUND' per partire!"
-              : "Round terminato. Clicca per iniziare il prossimo!";
+              : "Manche conclusa. Clicca per la prossima parola!";
         } else if (gameState.phase === "CAPTAIN_CLUE") {
           startBtn.style.display = "none";
 
-          // Verifica se questo dispositivo è il capitano della squadra attiva
           const isMyTeamActive = myPlayer.team === gameState.active_team;
           if (myPlayer.is_captain && isMyTeamActive && secretCard) {
             banner.innerHTML = `SEI IL CAPITANO! Invia 1 sola parola per la tua squadra:`;
@@ -702,20 +777,34 @@
           captainArea.style.display = "none";
           guessArea.style.display = "flex";
 
-          banner.innerHTML = `Tocca alla squadra: <strong style="color: var(--gold);">${gameState.active_team_name}</strong>`;
+          banner.innerHTML = `Tocca alla squadra: <strong style="color: var(--gold);">${gameState.active_team_name}</strong> (Tutti possono tentare!)`;
 
+          // Render indizi
           const stream = document.getElementById("cluesHistoryStream");
           stream.innerHTML = gameState.clues_history
             .map(
               (item) => `
           <div class="clue-row ${item.team === "A" ? "team-a" : "team-b"}">
             <span>#${item.attempt} - ${item.clue}</span>
-            <span style="font-size: 0.72rem; opacity: 0.85;">${item.team_name}</span>
+            <span style="font-size: 0.72rem; opacity: 0.85;">${item.team_name} (${item.captain_name})</span>
           </div>
         `,
             )
             .join("");
 
+          // Render tentativi inviati da tutti
+          const ticker = document.getElementById("guessesTicker");
+          ticker.innerHTML = (gameState.guesses_history || [])
+            .map(
+              (g) => `
+          <span class="guess-chip" style="color: ${g.team === "A" ? "var(--team-a)" : "var(--team-b)"};">
+            ${g.player}: <s>${g.guess}</s>
+          </span>
+        `,
+            )
+            .join("");
+
+          // TUTTI i membri della squadra attiva (tranne il capitano che conosce la risposta) possono digitare
           const canGuess =
             myPlayer.team === gameState.active_team && !myPlayer.is_captain;
           document.getElementById("guessInputRow").style.display = canGuess
@@ -731,9 +820,7 @@
       }
 
       function resetWholeGame() {
-        if (
-          confirm("Vuoi azzerare la partita e tornare alla lobby iniziale?")
-        ) {
+        if (confirm("Vuoi azzerare la partita e tornare alla lobby?")) {
           if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ action: "RESET_GAME" }));
           }

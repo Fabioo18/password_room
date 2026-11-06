@@ -1,12 +1,14 @@
 import json
 import random
-from typing import Dict, List
+from typing import Dict, List, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 
-app = FastAPI(title="Password Room Live Multiplayer")
+app = FastAPI(title="Password Room Live Multiplayer VIP")
 
+# Database arricchito con 50 parole e termini vietati (Taboo)
 PASSWORD_DATABASE = [
+    # OGGETTI E TECNOLOGIA
     {"password": "VULCANO", "forbidden": ["LAVA", "MAGMA", "ERUZIONE"]},
     {"password": "PIRATA", "forbidden": ["NAVE", "TESORO", "BENDA"]},
     {"password": "CAFFE", "forbidden": ["BAR", "ESPRESSO", "TAZZINA"]},
@@ -19,6 +21,50 @@ PASSWORD_DATABASE = [
     {"password": "DISCOTECA", "forbidden": ["BALLARE", "DJ", "SERATA"]},
     {"password": "CIOCCOLATO", "forbidden": ["DOLCE", "CACAO", "TAVOLETTA"]},
     {"password": "OSPEDALE", "forbidden": ["MEDICO", "MALATO", "DOTTORE"]},
+    {"password": "BICICLETTA", "forbidden": ["PEDALI", "RUOTE", "SELLA"]},
+    {"password": "OMBRELLO", "forbidden": ["PIOGGIA", "ACQUA", "APRIRE"]},
+    {"password": "OROLOGIO", "forbidden": ["TEMPO", "ORE", "POLSO"]},
+    {"password": "FORNO", "forbidden": ["PIZZA", "CALDO", "CUCINA"]},
+    {"password": "FRIGORIFERO", "forbidden": ["FREDDO", "GHIACCIO", "CIBO"]},
+    {"password": "TELEVISIONE", "forbidden": ["CANALI", "TELECOMANDO", "SCHERMO"]},
+    {"password": "LAVATRICE", "forbidden": ["PANNI", "BUCATO", "CENTRIFUGA"]},
+    {"password": "VALIGIA", "forbidden": ["VIAGGIO", "AEROPORTO", "VESTITI"]},
+    {"password": "SPECCHIO", "forbidden": ["RIFLESSO", "VETRO", "GUARDARSI"]},
+    {"password": "ZAINO", "forbidden": ["SCUOLA", "SPALLE", "LIBRI"]},
+    {"password": "OCCHIALI", "forbidden": ["VISTA", "LENTI", "SOLE"]},
+    {"password": "ASCIUGACAPELLI", "forbidden": ["BAGNO", "CALDO", "FON"]},
+    {"password": "CHIAVE", "forbidden": ["PORTA", "SERRATURA", "APRIRE"]},
+    # NATURA, ANIMALI E AMBIENTE
+    {"password": "DESERTO", "forbidden": ["SABBIA", "CAMMELLO", "CALDO"]},
+    {"password": "GHIACCIAIO", "forbidden": ["FREDDO", "POLO", "SCIOGLIERSI"]},
+    {"password": "FORESTA", "forbidden": ["ALBERI", "BOSCO", "FOGLIE"]},
+    {"password": "TERREMOTO", "forbidden": ["SCOSSA", "TREMARE", "TERRA"]},
+    {"password": "ARCOBALENO", "forbidden": ["COLORI", "PIOGGIA", "CIELO"]},
+    {"password": "SQUALO", "forbidden": ["MARE", "PINNA", "DENTI"]},
+    {"password": "LEONE", "forbidden": ["SAVANA", "CRINIERA", "RE"]},
+    {"password": "GIRAFFA", "forbidden": ["COLLO", "ALTA", "MACCHIE"]},
+    {"password": "PINGUINO", "forbidden": ["FREDDO", "POLO", "BIANCO"]},
+    {"password": "DELFINO", "forbidden": ["MARE", "SALTARE", "INTELLIGENTE"]},
+    # CIBO E BEVANDE
+    {"password": "PIZZA", "forbidden": ["FORNO", "MOZZARELLA", "POMODORO"]},
+    {"password": "GELATO", "forbidden": ["CONO", "FREDDO", "GUSTI"]},
+    {"password": "SPAGHETTI", "forbidden": ["PASTA", "SUGO", "FORCHETTA"]},
+    {"password": "HAMBURGER", "forbidden": ["PANINO", "CARNE", "PATATINE"]},
+    {"password": "BIRRA", "forbidden": ["ALCOL", "SCHIUMA", "BIONDA"]},
+    {"password": "SUSHI", "forbidden": ["PESCE", "RISO", "GIAPPONE"]},
+    # PROFESSIONI E RUOLI
+    {"password": "POMPIERE", "forbidden": ["FUOCO", "IDRANTE", "SIRENA"]},
+    {"password": "ASTRONAUTA", "forbidden": ["SPAZIO", "LUNA", "RAZZO"]},
+    {"password": "MAGO", "forbidden": ["TRUCCO", "BACCHETTA", "CILINDRO"]},
+    {"password": "POLIZIOTTO", "forbidden": ["PISTOLA", "MANETTE", "DIVISA"]},
+    {"password": "CAMERIERE", "forbidden": ["RISTORANTE", "CONTO", "VASSOIO"]},
+    {"password": "ARCHITETTO", "forbidden": ["CASA", "DISEGNO", "PROGETTO"]},
+    # LUOGHI E CULTURA POP
+    {"password": "COLOSSEO", "forbidden": ["ROMA", "GLADIATORI", "MONUMENTO"]},
+    {"password": "PIRAMIDI", "forbidden": ["EGITTO", "FARAONE", "SABBIA"]},
+    {"password": "STADIO", "forbidden": ["PARTITA", "CALCIO", "TIFOSI"]},
+    {"password": "MUSEO", "forbidden": ["QUADRI", "ARTE", "MOSTRA"]},
+    {"password": "TEATRO", "forbidden": ["PALCO", "SPETTACOLO", "ATTORI"]},
 ]
 
 POINTS_LADDER = [10, 8, 6, 4, 2]
@@ -56,7 +102,7 @@ class RoomState:
         self.team_b_name = "Squadra Amber"
         self.score_a = 0
         self.score_b = 0
-        self.players: Dict[str, dict] = {}
+        self.players: Dict[str, dict] = {}  # socket_id -> {name, team, is_captain}
         self.deck = list(PASSWORD_DATABASE)
         random.shuffle(self.deck)
         self.current_round = 0
@@ -64,7 +110,14 @@ class RoomState:
         self.active_team = "A"
         self.attempt_index = 0
         self.clues_history = []
+        self.guesses_history = []
         self.phase = "LOBBY"
+
+    def get_captain_name(self, team: str) -> Optional[str]:
+        for p in self.players.values():
+            if p.get("team") == team and p.get("is_captain"):
+                return p.get("name")
+        return None
 
 
 room = RoomState()
@@ -87,6 +140,9 @@ def build_public_state():
             min(room.attempt_index, len(POINTS_LADDER) - 1)
         ],
         "clues_history": room.clues_history,
+        "guesses_history": room.guesses_history,
+        "captain_a": room.get_captain_name("A"),
+        "captain_b": room.get_captain_name("B"),
         "has_active_card": room.current_card is not None,
     }
 
@@ -107,7 +163,6 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     client_id = str(id(websocket))
 
-    # Invia lo stato corrente al client appena connesso
     await websocket.send_json(build_public_state())
     secret = get_secret_payload()
     if secret:
@@ -121,11 +176,37 @@ async def websocket_endpoint(websocket: WebSocket):
             if action == "JOIN_GAME":
                 p_name = data.get("name", "Ospite").strip()
                 p_team = data.get("team", "A")
-                room.players[client_id] = {"name": p_name, "team": p_team}
+                room.players[client_id] = {
+                    "name": p_name,
+                    "team": p_team,
+                    "is_captain": False,
+                }
                 await manager.broadcast(build_public_state())
                 secret = get_secret_payload()
                 if secret:
                     await websocket.send_json(secret)
+
+            elif action == "CLAIM_CAPTAIN":
+                player = room.players.get(client_id)
+                if not player or player["team"] == "REGIA":
+                    continue
+
+                team = player["team"]
+                current_captain = room.get_captain_name(team)
+
+                # Se la squadra ha già un altro capitano
+                if current_captain and current_captain != player["name"]:
+                    await websocket.send_json(
+                        {
+                            "type": "ERROR",
+                            "message": f"Attenzione: {current_captain} è già il Capitano della tua squadra!",
+                        }
+                    )
+                    continue
+
+                # Diventa capitano (o rimuove il ruolo se riclicca)
+                player["is_captain"] = not player.get("is_captain", False)
+                await manager.broadcast(build_public_state())
 
             elif action == "RESET_GAME":
                 room.reset()
@@ -139,6 +220,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 room.current_round += 1
                 room.current_card = room.deck.pop(0)
                 room.clues_history = []
+                room.guesses_history = []
                 room.attempt_index = 0
                 room.active_team = "A" if (room.current_round % 2 != 0) else "B"
                 room.phase = "CAPTAIN_CLUE"
@@ -147,7 +229,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 await manager.broadcast(get_secret_payload())
 
             elif action == "SUBMIT_CLUE":
+                player = room.players.get(client_id, {})
                 clue = data.get("clue", "").strip().upper()
+
                 if not clue or " " in clue or "-" in clue or len(clue) < 2:
                     await websocket.send_json(
                         {
@@ -161,6 +245,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 forbidden = [f.upper() for f in room.current_card["forbidden"]]
 
                 if clue == pwd or clue in forbidden:
+                    # Penalità per infrazione Taboo
                     if room.active_team == "A":
                         room.score_a = max(0, room.score_a - 3)
                     else:
@@ -175,7 +260,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     await manager.broadcast(
                         {
                             "type": "TABOO_ALERT",
-                            "message": f"🚨 VIOLAZIONE TABOO! '{clue}' è vietata! (-3 Punti)",
+                            "message": f"🚨 VIOLAZIONE TABOO! La parola '{clue}' è vietata! (-3 Punti)",
                             "state": build_public_state(),
                         }
                     )
@@ -190,6 +275,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 else room.team_b_name
                             ),
                             "clue": clue,
+                            "captain_name": player.get("name", "Capitano"),
                             "attempt": room.attempt_index + 1,
                         }
                     )
@@ -197,9 +283,16 @@ async def websocket_endpoint(websocket: WebSocket):
                     await manager.broadcast(build_public_state())
 
             elif action == "SUBMIT_GUESS":
+                player = room.players.get(client_id, {})
                 guess = data.get("guess", "").strip().upper()
                 correct_pwd = room.current_card["password"].upper()
                 pts = POINTS_LADDER[min(room.attempt_index, len(POINTS_LADDER) - 1)]
+                p_name = player.get("name", "Giocatore")
+
+                # Registra il tentativo nello storico pubblico visibile a tutti
+                room.guesses_history.append(
+                    {"player": p_name, "guess": guess, "team": room.active_team}
+                )
 
                 if guess == correct_pwd:
                     if room.active_team == "A":
@@ -216,12 +309,14 @@ async def websocket_endpoint(websocket: WebSocket):
                                 if room.active_team == "A"
                                 else room.team_b_name
                             ),
+                            "guesser": p_name,
                             "password": correct_pwd,
                             "points": pts,
                             "state": build_public_state(),
                         }
                     )
                 else:
+                    # Rimbalzo alla squadra avversaria
                     room.attempt_index += 1
                     room.active_team = "B" if room.active_team == "A" else "A"
 
@@ -230,7 +325,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         await manager.broadcast(
                             {
                                 "type": "EXHAUSTED",
-                                "message": f"❌ Nessuna squadra ha indovinato! La parola era {correct_pwd}",
+                                "message": f"❌ Tentativi esauriti! La parola corretta era: {correct_pwd}",
                                 "password": correct_pwd,
                                 "state": build_public_state(),
                             }
@@ -240,7 +335,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         await manager.broadcast(
                             {
                                 "type": "WRONG_GUESS",
-                                "message": f"❌ Sbagliato! La mano rimbalza a {room.team_a_name if room.active_team == 'A' else room.team_b_name}",
+                                "message": f"❌ '{guess}' è errato! Il turno rimbalza a {room.team_a_name if room.active_team == 'A' else room.team_b_name}",
                                 "state": build_public_state(),
                             }
                         )
