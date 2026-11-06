@@ -6,11 +6,9 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <title>Password Room Live Sync | @webdev.fabio</title>
+    <title>Password Room Live | @webdev.fabio</title>
 
     <meta name="theme-color" content="#030712" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-
     <link
       rel="icon"
       type="image/svg+xml"
@@ -33,9 +31,7 @@
         --bg: #030712;
         --card-bg: rgba(11, 20, 38, 0.94);
         --team-a: #06b6d4;
-        --team-a-dark: #0891b2;
         --team-b: #f59e0b;
-        --team-b-dark: #d97706;
         --gold: #ffd000;
         --danger: #ef4444;
         --success: #10b981;
@@ -92,7 +88,7 @@
         border: 1px solid var(--border);
         backdrop-filter: blur(16px);
         border-radius: 26px;
-        padding: clamp(16px, 2.5vh, 24px) clamp(14px, 3vw, 20px);
+        padding: clamp(16px, 2.5vh, 22px);
         box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
         display: flex;
         flex-direction: column;
@@ -131,7 +127,7 @@
         text-transform: uppercase;
       }
       .team-pts-lbl {
-        font-size: 1.7rem;
+        font-size: 1.8rem;
         font-weight: 900;
       }
 
@@ -141,7 +137,7 @@
         color: var(--gold);
         border-radius: 999px;
         padding: 5px 14px;
-        font-size: 0.82rem;
+        font-size: 0.85rem;
         font-weight: 900;
         display: inline-flex;
         align-items: center;
@@ -156,14 +152,15 @@
         padding: 16px 14px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
+        box-shadow: 0 0 25px rgba(255, 208, 0, 0.2);
       }
       .secret-word-display {
-        font-size: clamp(2rem, 6vw, 2.6rem);
+        font-size: clamp(2rem, 6.5vw, 2.7rem);
         font-weight: 900;
         letter-spacing: 2px;
         color: #fff;
-        text-shadow: 0 0 16px rgba(6, 182, 212, 0.8);
+        text-shadow: 0 0 18px rgba(6, 182, 212, 0.85);
         text-transform: uppercase;
       }
       .forbidden-wrap {
@@ -178,7 +175,7 @@
         color: #fca5a5;
         font-size: 0.75rem;
         font-weight: 900;
-        padding: 3px 8px;
+        padding: 4px 10px;
         border-radius: 999px;
       }
 
@@ -253,11 +250,11 @@
         color: #030712;
       }
       .btn-cyan {
-        background: linear-gradient(135deg, var(--team-a), var(--team-a-dark));
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
         color: #030712;
       }
       .btn-amber {
-        background: linear-gradient(135deg, var(--team-b), var(--team-b-dark));
+        background: linear-gradient(135deg, #f59e0b, #d97706);
         color: #030712;
       }
       .btn-dark {
@@ -265,20 +262,14 @@
         border: 1px solid var(--border);
         color: #fff;
       }
-
-      canvas#confettiCanvas {
-        position: fixed;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        z-index: 500;
+      .btn-danger {
+        background: rgba(239, 68, 68, 0.2);
+        border: 1px solid var(--danger);
+        color: #fca5a5;
       }
     </style>
   </head>
   <body>
-    <canvas id="confettiCanvas"></canvas>
-
     <div class="creator-tag">
       💻 Realizzato da
       <a
@@ -301,13 +292,13 @@
         PASSWORD ROOM LIVE 🔐
       </h1>
 
-      <!-- 1. SCHERMATA ACCESSO / RUOLO DAL PROPRIO TELEFONO -->
+      <!-- 1. ACCESSO RUOLO -->
       <div
         id="join-screen"
         style="display: flex; flex-direction: column; gap: 10px"
       >
         <p style="font-size: 0.85rem; color: var(--muted)">
-          Connettiti con il tuo telefono per giocare insieme alla tua squadra:
+          Inserisci il tuo nome e unisciti alla tua squadra:
         </p>
 
         <input
@@ -320,16 +311,12 @@
 
         <div
           style="
-            font-size: 0.78rem;
-            font-weight: 800;
-            color: #fff;
-            text-align: left;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
             margin-top: 4px;
           "
         >
-          SCEGLI LA TUA SQUADRA:
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
           <button class="btn btn-cyan" onclick="joinLobby('A')">
             SQUADRA CYAN
           </button>
@@ -340,14 +327,14 @@
 
         <button
           class="btn btn-dark"
-          style="margin-top: 6px; font-size: 0.8rem"
+          style="margin-top: 4px; font-size: 0.8rem"
           onclick="joinLobby('REGIA')"
         >
           🖥️ MODALITÀ SCHERMO TV / PROIETTORE
         </button>
       </div>
 
-      <!-- 2. GIOCO SINCRONIZZATO LIVE -->
+      <!-- 2. GAMEPLAY -->
       <div
         id="gameplay-screen"
         style="display: none; flex-direction: column; gap: 10px"
@@ -397,13 +384,13 @@
           <span id="jackpotVal">10</span> PUNTI
         </div>
 
-        <!-- STATUS TURNO -->
+        <!-- BANNER DI STATO -->
         <div
           style="
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.06);
             border-radius: 12px;
-            padding: 8px;
-            font-size: 0.85rem;
+            padding: 10px;
+            font-size: 0.88rem;
             font-weight: 800;
           "
           id="statusBanner"
@@ -411,24 +398,24 @@
           In attesa di iniziare...
         </div>
 
-        <!-- SELETTORE CAPITANO (DISPONIBILE SUL PROPRIO SMARTPHONE) -->
+        <!-- TASTO CAPITANO -->
         <div
           id="captainToggleWrap"
           style="
             background: rgba(255, 255, 255, 0.04);
             border-radius: 12px;
-            padding: 8px;
+            padding: 10px;
             display: flex;
             align-items: center;
             justify-content: space-between;
           "
         >
-          <span style="font-size: 0.8rem; font-weight: 800"
-            >Sei il Capitano per questo round?</span
+          <span style="font-size: 0.82rem; font-weight: 800"
+            >Sei il Capitano di questo turno?</span
           >
           <button
             class="btn btn-gold"
-            style="width: auto; padding: 6px 12px; font-size: 0.75rem"
+            style="width: auto; padding: 8px 14px; font-size: 0.78rem"
             id="captainToggleBtn"
             onclick="toggleCaptainRole()"
           >
@@ -436,13 +423,25 @@
           </button>
         </div>
 
-        <!-- SEZIONE PRIVATA CAPITANO (VISIBILE SOLO SE SEI CAPITANO DELLA SQUADRA DI TURNO) -->
+        <!-- VISUALE DEL CAPITANO (SCHEDA SEGRETA) -->
         <div id="captainPrivateArea" class="captain-card" style="display: none">
-          <div style="font-size: 0.7rem; font-weight: 800; color: var(--gold)">
-            👁️ SCHEDA SEGRETA CAPITANO (NON MOSTRARE!):
+          <div
+            style="
+              font-size: 0.72rem;
+              font-weight: 800;
+              color: var(--gold);
+              text-transform: uppercase;
+            "
+          >
+            👁️ SCHEDA SEGRETA CAPITANO:
           </div>
           <div class="secret-word-display" id="captainWordDisplay">
-            PASSWORD
+            CARICAMENTO...
+          </div>
+          <div
+            style="font-size: 0.72rem; font-weight: 800; color: var(--danger)"
+          >
+            PAROLE PROIBITE (TABOO):
           </div>
           <div class="forbidden-wrap" id="captainForbiddenTags"></div>
 
@@ -464,7 +463,7 @@
           </div>
         </div>
 
-        <!-- SEZIONE GUESS COMPAGNI (VISIBILE A CHI DEVE INDOVINARE) -->
+        <!-- VISUALE SQUADRA CHE INDOVINA -->
         <div
           id="guessArea"
           style="display: none; flex-direction: column; gap: 8px"
@@ -477,7 +476,7 @@
               text-align: left;
             "
           >
-            INDIZI RICEVUTI:
+            INDIZI REGISTRATI:
           </div>
           <div class="clues-stream" id="cluesHistoryStream"></div>
 
@@ -499,15 +498,31 @@
           </div>
         </div>
 
-        <!-- TASTO AVVIO PROSSIMO ROUND (VISIBILE A TUTTI O ALLA REGIA) -->
-        <button
-          class="btn btn-gold"
-          id="startRoundBtn"
-          style="display: block"
-          onclick="startNextRound()"
+        <!-- TASTI DI CONTROLLO -->
+        <div
+          style="
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 6px;
+          "
         >
-          <i class="fa-solid fa-play"></i> INIZIA PROSSIMO ROUND
-        </button>
+          <button
+            class="btn btn-gold"
+            id="startRoundBtn"
+            onclick="startNextRound()"
+          >
+            <i class="fa-solid fa-play"></i> INIZIA PROSSIMO ROUND
+          </button>
+
+          <button
+            class="btn btn-danger"
+            style="padding: 10px; font-size: 0.75rem"
+            onclick="resetWholeGame()"
+          >
+            <i class="fa-solid fa-arrows-rotate"></i> RESETTA PARTITA DA ZERO
+          </button>
+        </div>
 
         <div
           id="liveAlertBox"
@@ -521,7 +536,6 @@
       let myPlayer = { name: "Ospite", team: "A", is_captain: false };
       let gameState = null;
       let secretCard = null;
-      let isConnecting = false;
 
       function initWebSocket(callback) {
         if (
@@ -537,7 +551,7 @@
         ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
         ws.onopen = () => {
-          console.log("WebSocket collegato con successo.");
+          console.log("WebSocket collegato.");
           if (callback) callback();
         };
 
@@ -546,27 +560,21 @@
             const data = JSON.parse(event.data);
             handleServerMessage(data);
           } catch (e) {
-            console.error("Errore parsing frame WS:", e);
+            console.error("Errore:", e);
           }
         };
 
         ws.onclose = () => {
           setTimeout(() => initWebSocket(), 2000);
         };
-
-        ws.onerror = (err) => {
-          console.error("Errore socket:", err);
-        };
       }
 
       function joinLobby(teamChoice) {
         const nameInput = document.getElementById("playerNameInput");
-        const name =
+        myPlayer.name =
           nameInput && nameInput.value.trim()
             ? nameInput.value.trim()
             : "Ospite";
-
-        myPlayer.name = name;
         myPlayer.team = teamChoice;
 
         document.getElementById("join-screen").style.display = "none";
@@ -576,8 +584,7 @@
           document.getElementById("captainToggleWrap").style.display = "none";
         }
 
-        // Assicura che l'invio avvenga a connessione aperta
-        const sendJoin = () => {
+        const send = () => {
           ws.send(
             JSON.stringify({
               action: "JOIN_GAME",
@@ -587,11 +594,8 @@
           );
         };
 
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          sendJoin();
-        } else {
-          initWebSocket(sendJoin);
-        }
+        if (ws && ws.readyState === WebSocket.OPEN) send();
+        else initWebSocket(send);
       }
 
       function handleServerMessage(data) {
@@ -671,26 +675,25 @@
           guessArea.style.display = "none";
           banner.innerText =
             gameState.phase === "LOBBY"
-              ? "Tutti pronti? Clicca sul tasto sotto per lanciare il Round!"
-              : "Manche conclusa. Clicca per la prossima password!";
+              ? "Lobby aperta. Premi 'INIZIA PROSSIMO ROUND' per partire!"
+              : "Round terminato. Clicca per iniziare il prossimo!";
         } else if (gameState.phase === "CAPTAIN_CLUE") {
           startBtn.style.display = "none";
-          banner.innerHTML = `Turno del Capitano: <strong style="color: var(--gold);">${gameState.active_team_name}</strong>`;
 
-          if (
-            myPlayer.is_captain &&
-            myPlayer.team === gameState.active_team &&
-            secretCard
-          ) {
+          // Verifica se questo dispositivo è il capitano della squadra attiva
+          const isMyTeamActive = myPlayer.team === gameState.active_team;
+          if (myPlayer.is_captain && isMyTeamActive && secretCard) {
+            banner.innerHTML = `SEI IL CAPITANO! Invia 1 sola parola per la tua squadra:`;
             captainArea.style.display = "flex";
             document.getElementById("captainWordDisplay").innerText =
               secretCard.password;
-            const tags = document.getElementById("captainForbiddenTags");
-            tags.innerHTML = secretCard.forbidden
-              .map((f) => `<span class="forbidden-tag">${f}</span>`)
-              .join("");
+            document.getElementById("captainForbiddenTags").innerHTML =
+              secretCard.forbidden
+                .map((f) => `<span class="forbidden-tag">${f}</span>`)
+                .join("");
           } else {
             captainArea.style.display = "none";
+            banner.innerHTML = `Turno del Capitano: <strong style="color: var(--gold);">${gameState.active_team_name}</strong><br><span style="font-size: 0.75rem; color: var(--muted);">(In attesa dell'indizio...)</span>`;
           }
 
           guessArea.style.display = "none";
@@ -705,11 +708,11 @@
           stream.innerHTML = gameState.clues_history
             .map(
               (item) => `
-        <div class="clue-row ${item.team === "A" ? "team-a" : "team-b"}">
-          <span>#${item.attempt} - ${item.clue}</span>
-          <span style="font-size: 0.72rem; opacity: 0.85;">${item.team_name}</span>
-        </div>
-      `,
+          <div class="clue-row ${item.team === "A" ? "team-a" : "team-b"}">
+            <span>#${item.attempt} - ${item.clue}</span>
+            <span style="font-size: 0.72rem; opacity: 0.85;">${item.team_name}</span>
+          </div>
+        `,
             )
             .join("");
 
@@ -722,13 +725,19 @@
       }
 
       function startNextRound() {
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-          initWebSocket(() => {
-            ws.send(JSON.stringify({ action: "START_ROUND" }));
-          });
-          return;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ action: "START_ROUND" }));
         }
-        ws.send(JSON.stringify({ action: "START_ROUND" }));
+      }
+
+      function resetWholeGame() {
+        if (
+          confirm("Vuoi azzerare la partita e tornare alla lobby iniziale?")
+        ) {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ action: "RESET_GAME" }));
+          }
+        }
       }
 
       function sendClue() {

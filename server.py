@@ -49,6 +49,9 @@ manager = ConnectionManager()
 
 class RoomState:
     def __init__(self):
+        self.reset()
+
+    def reset(self):
         self.team_a_name = "Squadra Cyan"
         self.team_b_name = "Squadra Amber"
         self.score_a = 0
@@ -84,7 +87,18 @@ def build_public_state():
             min(room.attempt_index, len(POINTS_LADDER) - 1)
         ],
         "clues_history": room.clues_history,
-        "players_count": len(room.players),
+        "has_active_card": room.current_card is not None,
+    }
+
+
+def get_secret_payload():
+    if not room.current_card:
+        return None
+    return {
+        "type": "SECRET_CARD_SYNC",
+        "password": room.current_card["password"],
+        "forbidden": room.current_card["forbidden"],
+        "active_team": room.active_team,
     }
 
 
@@ -93,7 +107,11 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     client_id = str(id(websocket))
 
+    # Invia lo stato corrente al client appena connesso
     await websocket.send_json(build_public_state())
+    secret = get_secret_payload()
+    if secret:
+        await websocket.send_json(secret)
 
     try:
         while True:
@@ -104,6 +122,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 p_name = data.get("name", "Ospite").strip()
                 p_team = data.get("team", "A")
                 room.players[client_id] = {"name": p_name, "team": p_team}
+                await manager.broadcast(build_public_state())
+                secret = get_secret_payload()
+                if secret:
+                    await websocket.send_json(secret)
+
+            elif action == "RESET_GAME":
+                room.reset()
                 await manager.broadcast(build_public_state())
 
             elif action == "START_ROUND":
@@ -118,22 +143,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 room.active_team = "A" if (room.current_round % 2 != 0) else "B"
                 room.phase = "CAPTAIN_CLUE"
 
-                # 1. Invia stato aggiornato
                 await manager.broadcast(build_public_state())
-
-                # 2. Invia la scheda segreta a tutti (il client del capitano la sblocca)
-                await manager.broadcast(
-                    {
-                        "type": "SECRET_CARD_SYNC",
-                        "password": room.current_card["password"],
-                        "forbidden": room.current_card["forbidden"],
-                        "active_team": room.active_team,
-                    }
-                )
+                await manager.broadcast(get_secret_payload())
 
             elif action == "SUBMIT_CLUE":
                 clue = data.get("clue", "").strip().upper()
-                if " " in clue or "-" in clue or len(clue) < 2:
+                if not clue or " " in clue or "-" in clue or len(clue) < 2:
                     await websocket.send_json(
                         {
                             "type": "ERROR",
@@ -160,10 +175,11 @@ async def websocket_endpoint(websocket: WebSocket):
                     await manager.broadcast(
                         {
                             "type": "TABOO_ALERT",
-                            "message": f"🚨 VIOLAZIONE TABOO! '{clue}' è vietata! (-3 PUNTI)",
+                            "message": f"🚨 VIOLAZIONE TABOO! '{clue}' è vietata! (-3 Punti)",
                             "state": build_public_state(),
                         }
                     )
+                    await manager.broadcast(get_secret_payload())
                 else:
                     room.clues_history.append(
                         {
@@ -214,7 +230,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         await manager.broadcast(
                             {
                                 "type": "EXHAUSTED",
-                                "message": f"❌ Tentativi esauriti! La parola era {correct_pwd}",
+                                "message": f"❌ Nessuna squadra ha indovinato! La parola era {correct_pwd}",
                                 "password": correct_pwd,
                                 "state": build_public_state(),
                             }
@@ -224,10 +240,11 @@ async def websocket_endpoint(websocket: WebSocket):
                         await manager.broadcast(
                             {
                                 "type": "WRONG_GUESS",
-                                "message": f"❌ Sbagliato! Tocca a {room.team_a_name if room.active_team == 'A' else room.team_b_name}",
+                                "message": f"❌ Sbagliato! La mano rimbalza a {room.team_a_name if room.active_team == 'A' else room.team_b_name}",
                                 "state": build_public_state(),
                             }
                         )
+                        await manager.broadcast(get_secret_payload())
 
     except WebSocketDisconnect:
         if client_id in room.players:
