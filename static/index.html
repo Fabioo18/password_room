@@ -425,7 +425,6 @@
           <span id="jackpotVal">10</span> PUNTI
         </div>
 
-        <!-- BANNER DI STATO -->
         <div
           style="
             background: rgba(255, 255, 255, 0.06);
@@ -439,7 +438,7 @@
           In attesa di iniziare...
         </div>
 
-        <!-- CANDIDATURA CAPITANO UNICO -->
+        <!-- BLOCCO CANDIDATURA CAPITANO UNICO -->
         <div
           id="captainToggleWrap"
           style="
@@ -506,7 +505,7 @@
           </div>
         </div>
 
-        <!-- VISUALE SQUADRA CHE INDOVINA (TENTATIVI APERTI A TUTTI) -->
+        <!-- VISUALE SQUADRA CHE INDOVINA -->
         <div
           id="guessArea"
           style="display: none; flex-direction: column; gap: 8px"
@@ -523,7 +522,6 @@
           </div>
           <div class="clues-stream" id="cluesHistoryStream"></div>
 
-          <!-- Tasto per contestare l'indizio se barano -->
           <button
             class="btn btn-danger"
             id="challengeBtn"
@@ -545,7 +543,6 @@
           </div>
           <div class="guesses-ticker" id="guessesTicker"></div>
 
-          <!-- Chiunque del team può continuare a inserire parole liberamente -->
           <div
             id="guessInputRow"
             style="display: flex; gap: 6px; margin-top: 6px"
@@ -576,10 +573,11 @@
           </button>
         </div>
 
-        <!-- CONTROLLI E RESET -->
+        <!-- CONTROLLI RISERVATI AI CAPITANI E ALLA REGIA -->
         <div
+          id="adminControlsArea"
           style="
-            display: flex;
+            display: none;
             flex-direction: column;
             gap: 8px;
             margin-top: 6px;
@@ -735,12 +733,14 @@
           ? `Capitano: ${gameState.captain_b}`
           : "Capitano: --";
 
+        // Verifica capitano
         const isCaptainA =
           gameState.captain_a === myPlayer.name && myPlayer.team === "A";
         const isCaptainB =
           gameState.captain_b === myPlayer.name && myPlayer.team === "B";
         myPlayer.is_captain = isCaptainA || isCaptainB;
 
+        // Gestione pulsante capitano
         const capBtn = document.getElementById("captainToggleBtn");
         const currentTeamCaptain =
           myPlayer.team === "A" ? gameState.captain_a : gameState.captain_b;
@@ -748,14 +748,25 @@
         if (myPlayer.is_captain) {
           capBtn.innerText = "SEI IL CAPITANO ✓";
           capBtn.style.background = "var(--success)";
+          capBtn.disabled = false;
+          capBtn.style.cursor = "pointer";
         } else if (currentTeamCaptain) {
           capBtn.innerText = `CAPITANO: ${currentTeamCaptain.toUpperCase()}`;
-          capBtn.style.background = "rgba(255,255,255,0.1)";
+          capBtn.style.background = "rgba(255,255,255,0.08)";
+          capBtn.disabled = true;
+          capBtn.style.cursor = "not-allowed";
         } else {
           capBtn.innerText = "DIVENTA CAPITANO 👑";
           capBtn.style.background =
             "linear-gradient(135deg, var(--gold), #d97706)";
+          capBtn.disabled = false;
+          capBtn.style.cursor = "pointer";
         }
+
+        // Visibilità controlli di gestione: solo per Capitani o Regia
+        const isAdmin = myPlayer.is_captain || myPlayer.team === "REGIA";
+        const adminArea = document.getElementById("adminControlsArea");
+        adminArea.style.display = isAdmin ? "flex" : "none";
 
         const badgeA = document.getElementById("hudBadgeA");
         const badgeB = document.getElementById("hudBadgeB");
@@ -773,13 +784,13 @@
         const startBtn = document.getElementById("startRoundBtn");
 
         if (gameState.phase === "LOBBY" || gameState.phase === "ROUND_END") {
-          startBtn.style.display = "block";
+          startBtn.style.display = isAdmin ? "block" : "none";
           captainArea.style.display = "none";
           guessArea.style.display = "none";
           banner.innerText =
             gameState.phase === "LOBBY"
-              ? "Lobby aperta. Premi 'INIZIA PROSSIMO ROUND' per partire!"
-              : "Manche conclusa. Clicca per la prossima parola!";
+              ? "In attesa che un Capitano o la Regia avvii la partita..."
+              : "Manche conclusa. In attesa del prossimo round...";
         } else if (gameState.phase === "CAPTAIN_CLUE") {
           startBtn.style.display = "none";
 
@@ -838,7 +849,6 @@
             ? "block"
             : "none";
 
-          // Tasto contestazione visibile solo per la regia o la squadra non attiva
           const canChallenge = myPlayer.team === "REGIA" || !isMyTeamActive;
           document.getElementById("challengeBtn").style.display = canChallenge
             ? "block"
@@ -853,7 +863,9 @@
       }
 
       function resetWholeGame() {
-        if (confirm("Vuoi azzerare la partita e tornare alla lobby?")) {
+        if (
+          confirm("Sei sicuro di voler azzerare la partita e tutti i punteggi?")
+        ) {
           if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ action: "RESET_GAME" }));
           }

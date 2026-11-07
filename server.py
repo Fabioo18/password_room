@@ -7,7 +7,6 @@ from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="Password Room Live Multiplayer VIP")
 
-# Dataset di 50 parole e termini vietati (Taboo)
 PASSWORD_DATABASE = [
     # OGGETTI E TECNOLOGIA
     {"password": "VULCANO", "forbidden": ["LAVA", "MAGMA", "ERUZIONE"]},
@@ -70,7 +69,6 @@ PASSWORD_DATABASE = [
 
 POINTS_LADDER = [10, 8, 6, 4, 2]
 
-# Vocabolario di parole italiane comuni per bloccare unioni arbitrarie
 COMMON_ITALIAN_WORDS = {
     "sole",
     "pioggia",
@@ -166,28 +164,18 @@ COMMON_ITALIAN_WORDS = {
 
 def is_compound_word(raw_text: str) -> bool:
     w = raw_text.strip()
-
-    # 1. Caratteri non ammessi (spazi, trattini, punteggiatura, numeri)
     if not re.match(r"^[a-zA-ZàèéìòùÀÈÉÌÒÙ]+$", w):
         return True
-
-    # 2. Rilevazione CamelCase (es. "SolePioggia", "PentolaDoro")
     if re.search(r"[a-zàèéìòù][A-ZÀÈÉÌÒÙ]", w):
         return True
-
     w_lower = w.lower()
-
-    # 3. Lunghezza anomala per singola parola italiana comune
     if len(w_lower) > 13:
         return True
-
-    # 4. Controllo segmentazione: verifica se è l'unione di due parole di senso compiuto
     for i in range(3, len(w_lower) - 2):
         prefix = w_lower[:i]
         suffix = w_lower[i:]
         if prefix in COMMON_ITALIAN_WORDS and suffix in COMMON_ITALIAN_WORDS:
             return True
-
     return False
 
 
@@ -293,6 +281,7 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             data = await websocket.receive_json()
             action = data.get("action")
+            player = room.players.get(client_id, {})
 
             if action == "JOIN_GAME":
                 p_name = data.get("name", "Ospite").strip()
@@ -308,30 +297,53 @@ async def websocket_endpoint(websocket: WebSocket):
                     await websocket.send_json(secret)
 
             elif action == "CLAIM_CAPTAIN":
-                player = room.players.get(client_id)
-                if not player or player["team"] == "REGIA":
+                if not player or player.get("team") == "REGIA":
                     continue
 
                 team = player["team"]
                 current_captain = room.get_captain_name(team)
 
+                # Se c'è già un capitano ed è un'altra persona, blocca l'azione
                 if current_captain and current_captain != player["name"]:
                     await websocket.send_json(
                         {
                             "type": "ERROR",
-                            "message": f"Attenzione: {current_captain} è già il Capitano della tua squadra!",
+                            "message": f"Attenzione: {current_captain} è già l'unico Capitano della tua squadra!",
                         }
                     )
                     continue
 
+                # Toggle: se è già capitano si disattiva, altrimenti acquisisce il ruolo
                 player["is_captain"] = not player.get("is_captain", False)
                 await manager.broadcast(build_public_state())
 
             elif action == "RESET_GAME":
+                # Controllo autorizzazioni: solo Capitani o Regia possono resettare
+                is_auth = player.get("is_captain") or player.get("team") == "REGIA"
+                if not is_auth:
+                    await websocket.send_json(
+                        {
+                            "type": "ERROR",
+                            "message": "⚠️ Solo un Capitano o la Regia può resettare la partita!",
+                        }
+                    )
+                    continue
+
                 room.reset()
                 await manager.broadcast(build_public_state())
 
             elif action == "START_ROUND":
+                # Controllo autorizzazioni: solo Capitani o Regia possono avviare
+                is_auth = player.get("is_captain") or player.get("team") == "REGIA"
+                if not is_auth:
+                    await websocket.send_json(
+                        {
+                            "type": "ERROR",
+                            "message": "⚠️ Solo un Capitano o la Regia può avviare il round!",
+                        }
+                    )
+                    continue
+
                 if not room.deck:
                     room.deck = list(PASSWORD_DATABASE)
                     random.shuffle(room.deck)
@@ -348,13 +360,26 @@ async def websocket_endpoint(websocket: WebSocket):
                 await manager.broadcast(get_secret_payload())
 
             elif action == "SUBMIT_CLUE":
+                # Solo il capitano della squadra attiva può mandare l'indizio
+                if (
+                    not player.get("is_captain")
+                    or player.get("team") != room.active_team
+                ):
+                    await websocket.send_json(
+                        {
+                            "type": "ERROR",
+                            "message": "Solo il Capitano di turno può inviare l'indizio!",
+                        }
+                    )
+                    continue
+
                 raw_clue = data.get("clue", "").strip()
 
                 if is_compound_word(raw_clue) or len(raw_clue) < 2:
                     await websocket.send_json(
                         {
                             "type": "ERROR",
-                            "message": "⚠️ VIOLAZIONE: L'indizio deve essere UNA SOLA parola semplice! Vietato unire parole (es. 'solepioggia' o 'PentolaDoro').",
+                            "message": "⚠️ VIOLAZIONE: L'indizio deve essere UNA SOLA parola semplice (no parole composte o CamelCase)!",
                         }
                     )
                     continue
@@ -384,7 +409,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     )
                     await manager.broadcast(get_secret_payload())
                 else:
-                    player = room.players.get(client_id, {})
                     room.clues_history.append(
                         {
                             "team": room.active_team,
@@ -402,7 +426,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     await manager.broadcast(build_public_state())
 
             elif action == "CHALLENGE_CLUE":
-                # Contestazione indizio illecito azionabile dalla Regia o squadra avversaria
                 if room.phase == "TEAM_GUESS" and room.clues_history:
                     bad_clue = room.clues_history[-1]["clue"]
                     if room.active_team == "A":
@@ -419,21 +442,20 @@ async def websocket_endpoint(websocket: WebSocket):
                     await manager.broadcast(
                         {
                             "type": "TABOO_ALERT",
-                            "message": f"🚨 INDIZIO CONTESTATO! '{bad_clue}' considerata parola composta/irregolare! (-3 Punti)",
+                            "message": f"🚨 INDIZIO CONTESTATO! '{bad_clue}' è irregolare! (-3 Punti)",
                             "state": build_public_state(),
                         }
                     )
                     await manager.broadcast(get_secret_payload())
 
             elif action == "SUBMIT_GUESS":
-                player = room.players.get(client_id, {})
                 raw_guess = data.get("guess", "").strip()
 
                 if not re.match(r"^[a-zA-ZàèéìòùÀÈÉÌÒÙ]+$", raw_guess):
                     await websocket.send_json(
                         {
                             "type": "ERROR",
-                            "message": "Inserisci una singola parola valida!",
+                            "message": "Inserisci una parola singola valida!",
                         }
                     )
                     continue
@@ -448,7 +470,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 )
 
                 if guess == correct_pwd:
-                    # Uno del team ha indovinato: vittoria immediata
                     if room.active_team == "A":
                         room.score_a += pts
                     else:
@@ -470,7 +491,6 @@ async def websocket_endpoint(websocket: WebSocket):
                         }
                     )
                 else:
-                    # Errato: la squadra può continuare a provare liberamente
                     await manager.broadcast(
                         {
                             "type": "WRONG_ATTEMPT",
