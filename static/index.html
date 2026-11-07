@@ -16,7 +16,7 @@
     />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap"
       rel="stylesheet"
@@ -523,6 +523,16 @@
           </div>
           <div class="clues-stream" id="cluesHistoryStream"></div>
 
+          <!-- Tasto per contestare l'indizio se barano -->
+          <button
+            class="btn btn-danger"
+            id="challengeBtn"
+            style="padding: 8px; font-size: 0.75rem"
+            onclick="challengeClue()"
+          >
+            🚨 CONTESTA INDIZIO (PAROLA COMPOSTA / BARO)
+          </button>
+
           <div
             style="
               font-size: 0.75rem;
@@ -556,7 +566,6 @@
             </button>
           </div>
 
-          <!-- Tasto per passare all'altra squadra se non sanno la risposta -->
           <button
             class="btn btn-secondary"
             id="passTurnBtn"
@@ -828,6 +837,12 @@
           document.getElementById("passTurnBtn").style.display = isMyTeamActive
             ? "block"
             : "none";
+
+          // Tasto contestazione visibile solo per la regia o la squadra non attiva
+          const canChallenge = myPlayer.team === "REGIA" || !isMyTeamActive;
+          document.getElementById("challengeBtn").style.display = canChallenge
+            ? "block"
+            : "none";
         }
       }
 
@@ -865,6 +880,18 @@
         if (confirm("Vuoi passare il turno alla squadra avversaria?")) {
           if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ action: "PASS_TURN" }));
+          }
+        }
+      }
+
+      function challengeClue() {
+        if (
+          confirm(
+            "Vuoi contestare l'indizio come parola composta o irregolare (-3 punti e cambio turno)?",
+          )
+        ) {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ action: "CHALLENGE_CLUE" }));
           }
         }
       }

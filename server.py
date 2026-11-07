@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="Password Room Live Multiplayer VIP")
 
+# Dataset di 50 parole e termini vietati (Taboo)
 PASSWORD_DATABASE = [
     # OGGETTI E TECNOLOGIA
     {"password": "VULCANO", "forbidden": ["LAVA", "MAGMA", "ERUZIONE"]},
@@ -69,6 +70,126 @@ PASSWORD_DATABASE = [
 
 POINTS_LADDER = [10, 8, 6, 4, 2]
 
+# Vocabolario di parole italiane comuni per bloccare unioni arbitrarie
+COMMON_ITALIAN_WORDS = {
+    "sole",
+    "pioggia",
+    "vento",
+    "mare",
+    "montagna",
+    "fiume",
+    "lago",
+    "terra",
+    "fuoco",
+    "acqua",
+    "casa",
+    "porta",
+    "finestra",
+    "tavolo",
+    "sedia",
+    "letto",
+    "pentola",
+    "piatto",
+    "bicchiere",
+    "oro",
+    "argento",
+    "ferro",
+    "legno",
+    "carta",
+    "penna",
+    "libro",
+    "gatto",
+    "cane",
+    "topo",
+    "pane",
+    "pasta",
+    "pizza",
+    "vino",
+    "birra",
+    "carne",
+    "pesce",
+    "mela",
+    "pera",
+    "latte",
+    "notte",
+    "giorno",
+    "luce",
+    "ombra",
+    "cielo",
+    "stella",
+    "luna",
+    "strada",
+    "auto",
+    "treno",
+    "rosso",
+    "blu",
+    "verde",
+    "giallo",
+    "nero",
+    "bianco",
+    "bello",
+    "grande",
+    "piccolo",
+    "caldo",
+    "freddo",
+    "dolce",
+    "amaro",
+    "forte",
+    "piano",
+    "testa",
+    "mano",
+    "piede",
+    "occhio",
+    "bocca",
+    "barca",
+    "albero",
+    "fiore",
+    "prato",
+    "bosco",
+    "neve",
+    "ghiaccio",
+    "tempo",
+    "ora",
+    "anno",
+    "uomo",
+    "donna",
+    "bimbo",
+    "amico",
+    "cuore",
+    "mente",
+    "corpo",
+    "vita",
+    "cosa",
+    "modo",
+}
+
+
+def is_compound_word(raw_text: str) -> bool:
+    w = raw_text.strip()
+
+    # 1. Caratteri non ammessi (spazi, trattini, punteggiatura, numeri)
+    if not re.match(r"^[a-zA-ZàèéìòùÀÈÉÌÒÙ]+$", w):
+        return True
+
+    # 2. Rilevazione CamelCase (es. "SolePioggia", "PentolaDoro")
+    if re.search(r"[a-zàèéìòù][A-ZÀÈÉÌÒÙ]", w):
+        return True
+
+    w_lower = w.lower()
+
+    # 3. Lunghezza anomala per singola parola italiana comune
+    if len(w_lower) > 13:
+        return True
+
+    # 4. Controllo segmentazione: verifica se è l'unione di due parole di senso compiuto
+    for i in range(3, len(w_lower) - 2):
+        prefix = w_lower[:i]
+        suffix = w_lower[i:]
+        if prefix in COMMON_ITALIAN_WORDS and suffix in COMMON_ITALIAN_WORDS:
+            return True
+
+    return False
+
 
 class ConnectionManager:
     def __init__(self):
@@ -121,24 +242,6 @@ class RoomState:
 
 
 room = RoomState()
-
-
-# Controllo anti-parole composte / camelCase
-def is_invalid_compound_word(raw_text: str) -> bool:
-    # 1. Spazi o trattini o punteggiatura
-    if re.search(r"[\s\-_.,;:'\"/\\|]", raw_text):
-        return True
-    # 2. Solo lettere alfabetiche (italiane)
-    if not re.match(r"^[a-zA-ZàèéìòùÀÈÉÌÒÙ]+$", raw_text):
-        return True
-    # 3. Rilevazione CamelCase es. "PentolaDoro", "SoleCreaPioggia"
-    # C'è una minuscola seguita immediatamente da una maiuscola
-    if re.search(r"[a-zàèéìòù][A-ZÀÈÉÌÒÙ]", raw_text):
-        return True
-    # 4. Lunghezza innaturale per singola parola
-    if len(raw_text) > 16:
-        return True
-    return False
 
 
 def build_public_state():
@@ -247,12 +350,11 @@ async def websocket_endpoint(websocket: WebSocket):
             elif action == "SUBMIT_CLUE":
                 raw_clue = data.get("clue", "").strip()
 
-                # Controllo anti-parole composte
-                if is_invalid_compound_word(raw_clue) or len(raw_clue) < 2:
+                if is_compound_word(raw_clue) or len(raw_clue) < 2:
                     await websocket.send_json(
                         {
                             "type": "ERROR",
-                            "message": "⚠️ VIETATO: L'indizio deve essere UNA SOLA parola semplice! Niente parole composte inventate o CamelCase (es. no 'PentolaDoro').",
+                            "message": "⚠️ VIOLAZIONE: L'indizio deve essere UNA SOLA parola semplice! Vietato unire parole (es. 'solepioggia' o 'PentolaDoro').",
                         }
                     )
                     continue
@@ -267,7 +369,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     else:
                         room.score_b = max(0, room.score_b - 3)
 
-                    # Passaggio all'altra squadra
                     room.active_team = "B" if room.active_team == "A" else "A"
                     room.attempt_index = min(
                         len(POINTS_LADDER) - 1, room.attempt_index + 1
@@ -300,15 +401,39 @@ async def websocket_endpoint(websocket: WebSocket):
                     room.phase = "TEAM_GUESS"
                     await manager.broadcast(build_public_state())
 
+            elif action == "CHALLENGE_CLUE":
+                # Contestazione indizio illecito azionabile dalla Regia o squadra avversaria
+                if room.phase == "TEAM_GUESS" and room.clues_history:
+                    bad_clue = room.clues_history[-1]["clue"]
+                    if room.active_team == "A":
+                        room.score_a = max(0, room.score_a - 3)
+                    else:
+                        room.score_b = max(0, room.score_b - 3)
+
+                    room.active_team = "B" if room.active_team == "A" else "A"
+                    room.attempt_index = min(
+                        len(POINTS_LADDER) - 1, room.attempt_index + 1
+                    )
+                    room.phase = "CAPTAIN_CLUE"
+
+                    await manager.broadcast(
+                        {
+                            "type": "TABOO_ALERT",
+                            "message": f"🚨 INDIZIO CONTESTATO! '{bad_clue}' considerata parola composta/irregolare! (-3 Punti)",
+                            "state": build_public_state(),
+                        }
+                    )
+                    await manager.broadcast(get_secret_payload())
+
             elif action == "SUBMIT_GUESS":
                 player = room.players.get(client_id, {})
                 raw_guess = data.get("guess", "").strip()
 
-                if is_invalid_compound_word(raw_guess):
+                if not re.match(r"^[a-zA-ZàèéìòùÀÈÉÌÒÙ]+$", raw_guess):
                     await websocket.send_json(
                         {
                             "type": "ERROR",
-                            "message": "Inserisci una singola parola valida senza unioni arbitrarie!",
+                            "message": "Inserisci una singola parola valida!",
                         }
                     )
                     continue
@@ -318,13 +443,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 pts = POINTS_LADDER[min(room.attempt_index, len(POINTS_LADDER) - 1)]
                 p_name = player.get("name", "Giocatore")
 
-                # Registra il tentativo nello storico pubblico
                 room.guesses_history.append(
                     {"player": p_name, "guess": guess, "team": room.active_team}
                 )
 
                 if guess == correct_pwd:
-                    # UNO DEL TEAM HA INDOVINATO: VITTORIA IMMEDIATA DEL ROUND!
+                    # Uno del team ha indovinato: vittoria immediata
                     if room.active_team == "A":
                         room.score_a += pts
                     else:
@@ -346,7 +470,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         }
                     )
                 else:
-                    # PAROLA SBAGLIATA: NON RIMBALZA! LA SQUADRA PUÒ CONTINUARE A PROVARE
+                    # Errato: la squadra può continuare a provare liberamente
                     await manager.broadcast(
                         {
                             "type": "WRONG_ATTEMPT",
@@ -358,7 +482,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     )
 
             elif action == "PASS_TURN":
-                # La squadra decide di passare la mano all'altra squadra
                 room.attempt_index += 1
                 room.active_team = "B" if room.active_team == "A" else "A"
 
